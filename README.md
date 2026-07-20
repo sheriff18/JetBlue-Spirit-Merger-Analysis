@@ -3,7 +3,7 @@
 A route-level competitive effects analysis of JetBlue's proposed
 acquisition of Spirit Airlines, working the four standard tools of
 merger review — concentration screens, market definition, unilateral
-effects, and merger simulation — against the case DOJ actually brought
+effects, and merger simulation — against the case Department of Justice (DOJ) actually brought
 and won.
 
 ![Exhibits](output/exhibits.png)
@@ -55,10 +55,8 @@ Working the sample panel of 463 routes:
   3% marginal cost reduction. A ~15%+ efficiency would be needed to
   fully offset — far above what merging parties typically verify.
 
-## Being honest about the assumptions
+## The assumptions
 
-Every step embeds a judgment an opposing expert would probe, so each is
-tested rather than buried:
 
 - **Margin (25% assumed).** Airline variable margins aren't observable
   in DB1B. Sensitivity: the predicted fare effect ranges from +4.4% to
@@ -86,7 +84,7 @@ documented, because each is contestable.
 ⚠️ **The shipped `data/route_panel.csv` is SYNTHETIC**, calibrated to
 the real JetBlue/Spirit network structure and fare positioning so the
 analysis runs without an 800MB download. It is **not real DOT data**.
-Rebuild before citing any figure:
+
 
 ```bash
 python -m mergeranalysis.db1b --build     # downloads 2022 Q1–Q4 DB1B
