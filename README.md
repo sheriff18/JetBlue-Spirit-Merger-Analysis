@@ -92,10 +92,8 @@ on flagged routes with no efficiencies. Crediting a 10% marginal cost
 reduction — well above what merging parties typically verify — the
 predicted increase is still **+9.0%**.
 
-## Being honest about the assumptions
+## Assumptions
 
-Every step embeds a judgment an opposing expert would probe, so each is
-tested rather than buried:
 
 - **Margin (25% assumed).** Airline variable margins aren't observable
   in DB1B. Sensitivity: the predicted fare effect ranges from +7.0% to
