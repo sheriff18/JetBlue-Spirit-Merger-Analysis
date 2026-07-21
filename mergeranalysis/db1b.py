@@ -32,6 +32,18 @@ stated explicitly rather than buried:
      competition is on the city pair, not the direction.
   6. Carriers with under 1% of a route's passengers are dropped from
      share calculations as noise.
+  7. Non-carrier reporting codes are dropped. DB1B uses '99' for
+     unknown/other carriers; on the 2022 files it appears on ~20,000
+     routes and would otherwise pollute every share calculation.
+  8. MINIMUM TRAFFIC FLOOR. Raw DB1B contains ~45,000 airport pairs,
+     but the median pair carries 26 sampled passengers per year - a
+     handful of connecting itineraries, not a market anyone competes
+     for. We keep routes with at least MIN_ROUTE_PAX sampled
+     passengers annually (2,000 in a 10% sample, so roughly 20,000
+     real passengers). This is the single most consequential cleaning
+     choice: it takes the panel from ~45,000 nominal routes to ~3,400
+     genuine markets. A share screen alone cannot do this job - on a
+     route with three tickets, one carrier trivially holds 33%.
 
 CHOICE OF MARKET DEFINITION
 ---------------------------
@@ -54,6 +66,30 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 MIN_FARE = 20.0
 MAX_FARE = 2000.0
 MIN_CARRIER_SHARE = 0.01
+
+# Minimum sampled passengers per route per year. DB1B is a 10% sample,
+# so 2,000 corresponds to roughly 20,000 actual passengers - a market
+# with meaningful commercial traffic. Sensitivity to this threshold is
+# reported in the analysis.
+MIN_ROUTE_PAX = 2000
+
+# DB1B reporting codes that are not real carriers. '99' denotes
+# unknown/other and carries no competitive meaning.
+NON_CARRIER_CODES = {"99"}
+
+# Minimum sampled passengers per route per year. DB1B is a 10% sample,
+# so 2,000 sampled passengers is roughly 20,000 real ones - the floor
+# below which an airport pair is not a market anyone would litigate
+# over. Without it the panel is dominated by noise: in raw 2022 data
+# the MEDIAN route carries 26 sampled passengers a year, and on a
+# route with three tickets one carrier trivially holds 33% share, so
+# the share filter alone cannot remove them.
+MIN_ROUTE_PAX = 2000
+
+# Codes that are not real operating carriers. '99' is DB1B's
+# unknown/other bucket; left in, it appears on ~20,000 routes and
+# corrupts every share calculation.
+EXCLUDED_CARRIERS = {"99"}
 
 # Metro-area groupings for the sensitivity test
 METRO_GROUPS = {
@@ -118,20 +154,38 @@ def clean_db1b(path: str) -> pd.DataFrame:
 
 
 def build_route_panel(df: pd.DataFrame,
-                      metro: bool = False) -> pd.DataFrame:
+                      metro: bool = False,
+                      min_route_pax: int = MIN_ROUTE_PAX) -> pd.DataFrame:
     """Aggregate tickets into a route-carrier panel with shares and fares.
 
     This is the analytical unit: one row per (route, carrier) with
-    passengers, passenger-weighted average fare, and share.
+    passengers, passenger-weighted average fare, and within-route share.
+
+    Cleaning applied here, in order:
+      1. Drop non-carrier reporting codes (see NON_CARRIER_CODES)
+      2. Aggregate to route-carrier level
+      3. Apply the minimum-traffic floor (see MIN_ROUTE_PAX)
+      4. Compute shares, drop fringe carriers below MIN_CARRIER_SHARE,
+         then RENORMALIZE so surviving shares sum to 1
+
+    Step 3 is the consequential one and is deliberately explicit: raw
+    DB1B contains tens of thousands of airport pairs that are not
+    markets in any commercial sense. Screening on share alone cannot
+    remove them, because tiny routes produce large shares by
+    construction.
     """
     d = df.copy()
+
+    # 1. Non-carrier codes
+    d = d[~d["carrier"].astype(str).isin(NON_CARRIER_CODES)]
+
     if metro:
         d["origin"] = d["origin"].map(lambda a: METRO_GROUPS.get(a, a))
         d["dest"] = d["dest"].map(lambda a: METRO_GROUPS.get(a, a))
         d["market"] = [f"{min(o,dd)}-{max(o,dd)}"
                        for o, dd in zip(d["origin"], d["dest"])]
 
-    # Passenger-weighted average fare per route-carrier
+    # 2. Passenger-weighted average fare per route-carrier
     d["fare_x_pax"] = d["fare"] * d["pax"]
     g = d.groupby(["market", "carrier"], as_index=False).agg(
         pax=("pax", "sum"), fare_x_pax=("fare_x_pax", "sum"),
@@ -139,14 +193,21 @@ def build_route_panel(df: pd.DataFrame,
     g["fare"] = g["fare_x_pax"] / g["pax"]
     g = g.drop(columns=["fare_x_pax"])
 
-    # Shares within each route
+    # 3. Minimum-traffic floor
+    route_totals = g.groupby("market")["pax"].sum()
+    keep = route_totals[route_totals >= min_route_pax].index
+    n_before = g["market"].nunique()
+    g = g[g["market"].isin(keep)].copy()
+    print(f"  Traffic floor (>={min_route_pax:,} sampled pax/yr): "
+          f"{n_before:,} -> {g['market'].nunique():,} routes")
+
+    # 4. Shares, fringe screen, renormalize
     g["route_pax"] = g.groupby("market")["pax"].transform("sum")
     g["share"] = g["pax"] / g["route_pax"]
     g = g[g["share"] >= MIN_CARRIER_SHARE]
-
-    # Renormalize after dropping fringe carriers
     g["route_pax"] = g.groupby("market")["pax"].transform("sum")
     g["share"] = g["pax"] / g["route_pax"]
+
     return g.reset_index(drop=True)
 
 

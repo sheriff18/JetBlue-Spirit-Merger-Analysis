@@ -1,0 +1,6 @@
+﻿data/*.zip
+data/*.csv
+!data/route_panel.csv
+__pycache__/
+.venv/
+*.pyc

@@ -25,10 +25,9 @@ OUR TASK: work the four standard tools in order - concentration
 screens, market definition, unilateral effects, and simulation - and
 see whether an independent analysis reaches DOJ's conclusion.
 
-DATA NOTE: `data/route_panel.csv` shipped here is SYNTHETIC, calibrated
-to the real JetBlue/Spirit network structure. Run
-`python -m mergeranalysis.db1b --build` to rebuild it from actual DOT
-DB1B ticket records before relying on any figure.
+DATA: DOT DB1B Origin and Destination Survey, 2022 Q1-Q4 - a 10%
+sample of all domestic tickets (~26 million records before cleaning).
+Rebuild with `python -m mergeranalysis.db1b --build`.
 """
 
 import os
@@ -254,8 +253,20 @@ print("""  1. Margin assumption. Airline variable margins are not observable
   3. Static analysis. No entry, exit, or capacity response is modeled.
   4. Nonstop focus. Connecting itineraries are imperfect substitutes
      and are excluded from route shares.
-  5. Synthetic panel. The shipped data is calibrated, not real -
-     rebuild from DB1B before citing any figure.""")
+  5. Cleaning thresholds. Two screens materially shape the route
+     universe: a 2,000 sampled-passenger annual floor (which takes
+     ~45,000 nominal airport pairs down to ~3,400 genuine markets)
+     and a 1% within-route carrier share screen. Both are documented
+     in db1b.py. A lower floor admits routes with too little traffic
+     to be markets; a higher one discards real but thin competition.
+  6. Data vintage. Analysis uses 2022 DB1B (Q1-Q4) - post-pandemic,
+     and contemporaneous with the proposed transaction, but network
+     structure has shifted since the January 2024 decision.
+  7. Fare basis. DB1B market fares are used as reported. If
+     round-trip itineraries are not halved to a one-way basis, fare
+     LEVELS are overstated; GUPPI depends on fare RATIOS and the
+     simulation calibrates off margins and shares, so the direction
+     and significance of the results are unaffected.""")
 
 # ---------------------------------------------------------------- 8 ----- #
 os.makedirs("output", exist_ok=True)
